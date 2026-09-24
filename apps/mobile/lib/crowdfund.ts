@@ -1,6 +1,42 @@
-import { apiClient, ApiResponse } from './api-client';
+import { apiClient, ApiError, ApiResponse } from './api-client';
 
 export type OnChainStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED' | 'PENDING';
+
+export const CONTRIBUTIONS_PAUSED_MESSAGE =
+  'Contributions are temporarily paused. Please try again after the operator resumes them.';
+
+const CONTRIBUTION_SCOPE_PAUSED_ERROR = 19;
+const CONTRACT_ERROR_PATTERN = /Error\(Contract,\s*#(\d+)\)/;
+
+/**
+ * Converts backend/Soroban pause diagnostics to the same user-facing message
+ * used by the contribution screen. This keeps the UI stable even if a proxy
+ * returns the raw contract diagnostic during an emergency pause.
+ */
+export function normalizeContributionError(error?: ApiError): ApiError | undefined {
+  if (!error) return undefined;
+
+  const details =
+    typeof error.details === 'object' && error.details !== null
+      ? (error.details as Record<string, unknown>)
+      : undefined;
+  const detailsCode = Number(details?.contractErrorCode);
+  const match = CONTRACT_ERROR_PATTERN.exec(error.message);
+  const messageCode = match ? Number.parseInt(match[1], 10) : null;
+
+  if (
+    detailsCode === CONTRIBUTION_SCOPE_PAUSED_ERROR ||
+    messageCode === CONTRIBUTION_SCOPE_PAUSED_ERROR
+  ) {
+    return {
+      ...error,
+      message: CONTRIBUTIONS_PAUSED_MESSAGE,
+      error: 'ContributionsPausedError',
+    };
+  }
+
+  return error;
+}
 
 /**
  * Crowdfund Project — mirrors the on-chain ProjectData structure
@@ -106,7 +142,11 @@ export const crowdfundApi = {
    * the transaction to the network.
    */
   async contribute(payload: ContributionRequest): Promise<ApiResponse<ContributionResponse>> {
-    return apiClient.post<ContributionResponse>('/crowdfund/contribute', payload);
+    const response = await apiClient.post<ContributionResponse>('/crowdfund/contribute', payload);
+    if (!response.success) {
+      return { ...response, error: normalizeContributionError(response.error) };
+    }
+    return response;
   },
 
   /**

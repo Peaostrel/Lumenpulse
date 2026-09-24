@@ -15,9 +15,9 @@ const CONTRACT_ERROR_PATTERN = /Error\(Contract,\s*#(\d+)\)/;
  * Normalize both structured backend errors and raw Soroban diagnostics so the
  * contribution UI can show one deterministic pause message.
  */
-export function normalizeContributionError<T extends ContributionApiError>(
-  error?: T,
-): T | undefined {
+export function normalizeContributionError(
+  error?: ContributionApiError,
+): ContributionApiError | undefined {
   if (!error) return undefined;
 
   const details =

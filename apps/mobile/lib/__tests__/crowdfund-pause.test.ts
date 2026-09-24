@@ -1,7 +1,7 @@
 import {
   CONTRIBUTIONS_PAUSED_MESSAGE,
   normalizeContributionError,
-} from '../crowdfund';
+} from '../contribution-pause';
 
 describe('contribution pause error handling', () => {
   it('maps a backend contractErrorCode to the friendly pause message', () => {
